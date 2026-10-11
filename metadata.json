@@ -1,0 +1,6 @@
+{
+  "name": "Tuition Manager BD",
+  "description": "Bangladeshi coaching and private tuition management app for teachers with student tracking, routine, attendance, and fee management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
