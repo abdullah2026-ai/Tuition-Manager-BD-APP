@@ -250,6 +250,14 @@ fun TuitionManagerApp(viewModel: TuitionViewModel) {
                         batchToEdit = null
                         showBatchDialog = true
                     },
+                    onOpenAddBatch = {
+                        batchToEdit = null
+                        showBatchDialog = true
+                    },
+                    onOpenAddHomeTuition = {
+                        tuitionToEdit = null
+                        showTuitionDialog = true
+                    },
                     onOpenRecordFeeDialog = {
                         preselectedPaymentStudentId = null
                         showPaymentDialog = true

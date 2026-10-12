@@ -19,9 +19,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import com.example.ui.components.FormModalContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -91,23 +93,37 @@ fun RecordPaymentDialog(
         "OTHER" to Localization.get("other", isBn)
     )
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            ModalHeader(
-                title = Localization.get("record_payment", isBn),
-                onClose = onDismiss
+    FormModalContainer(
+        title = Localization.get("record_payment", isBn),
+        purposeSubtitle = if (isBn) "শিক্ষার্থীর মাসিক বেতন আদায় ও রসিদ সংরক্ষণ" else "Collect student monthly fee & save receipt",
+        icon = Icons.Default.Payments,
+        headerColor = Color(0xFF16A34A),
+        onDismiss = onDismiss,
+        confirmButtonText = Localization.get("save", isBn),
+        dismissButtonText = Localization.get("cancel", isBn),
+        confirmButtonTestTag = "btn_submit_payment",
+        dismissButtonTestTag = "btn_cancel_payment",
+        dialogTestTag = "dialog_record_payment",
+        confirmButtonEnabled = !isSubmitting,
+        onConfirm = {
+            if (isSubmitting || selectedStudentId == 0L) return@FormModalContainer
+            val amt = amountStr.toDoubleOrNull() ?: 0.0
+            if (amt <= 0) return@FormModalContainer
+
+            isSubmitting = true
+            val payment = FeePayment(
+                studentId = selectedStudentId,
+                monthYear = selectedMonthYear.trim(),
+                amount = amt,
+                paymentDate = paymentDate.trim(),
+                paymentMethod = selectedMethod,
+                notes = notes.trim()
             )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Select Student
-                Text(
+            onSavePayment(payment)
+        }
+    ) {
+        // Select Student
+        Text(
                     text = Localization.get("student_name", isBn) + " *",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -252,49 +268,5 @@ fun RecordPaymentDialog(
                     colors = modalTextFieldColors(),
                     singleLine = true
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (isSubmitting || selectedStudentId == 0L) return@Button
-                    val amt = amountStr.toDoubleOrNull() ?: 0.0
-                    if (amt <= 0) return@Button
-
-                    isSubmitting = true
-                    val payment = FeePayment(
-                        studentId = selectedStudentId,
-                        monthYear = selectedMonthYear.trim(),
-                        amount = amt,
-                        paymentDate = paymentDate.trim(),
-                        paymentMethod = selectedMethod,
-                        notes = notes.trim()
-                    )
-                    onSavePayment(payment)
-                },
-                enabled = !isSubmitting,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryBlue,
-                    contentColor = androidx.compose.ui.graphics.Color.White
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                modifier = Modifier.testTag("btn_submit_payment")
-            ) {
-                Text(
-                    text = Localization.get("save", isBn),
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = Localization.get("cancel", isBn),
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    )
+    }
 }

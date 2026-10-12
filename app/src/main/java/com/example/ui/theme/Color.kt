@@ -70,6 +70,8 @@ val OnAccentGreen = Color(0xFF064E3B)
 
 // Payment Method Badges
 val BkashPink = Color(0xFFE2136E)
+val BkashBg = Color(0xFFFDE8F1)
 val NagadOrange = Color(0xFFF25A24)
+val NagadBg = Color(0xFFFEEDE8)
 val CashGreen = Color(0xFF16A34A)
 val BankBlue = Color(0xFF0284C7)

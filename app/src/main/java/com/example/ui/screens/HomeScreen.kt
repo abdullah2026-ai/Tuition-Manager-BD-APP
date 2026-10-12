@@ -4,7 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import com.example.ui.dialogs.SelectClassTypeDialog
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -104,7 +106,9 @@ fun HomeScreen(
     onNavigateToFees: () -> Unit,
     onNavigateToAttendance: () -> Unit,
     onOpenAddStudentDialog: () -> Unit,
-    onOpenAddClassDialog: () -> Unit,
+    onOpenAddClassDialog: () -> Unit = {},
+    onOpenAddBatch: () -> Unit = onOpenAddClassDialog,
+    onOpenAddHomeTuition: () -> Unit = {},
     onOpenRecordFeeDialog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -114,6 +118,8 @@ fun HomeScreen(
     val allSessions by viewModel.allUnifiedSessions.collectAsState()
     val payments by viewModel.allPayments.collectAsState()
     val dues by viewModel.allDues.collectAsState()
+
+    var showClassTypeDialog by remember { mutableStateOf(false) }
 
     val todayCode = BengaliDateUtils.getTodayDayCode()
     val todayDate = BengaliDateUtils.getTodayDateString()
@@ -126,9 +132,11 @@ fun HomeScreen(
     val currentMonthPayments = payments.filter { it.monthYear == currentMonth }
     val totalCollected = currentMonthPayments.sumOf { it.amount }
 
-    val currentMonthDues = dues.filter { it.monthYear == currentMonth }
-    val totalDueObligation = currentMonthDues.sumOf { it.dueAmount }
-    val totalOutstanding = (totalDueObligation - totalCollected).coerceAtLeast(0.0)
+    val currentMonthDuesMap = dues.filter { it.monthYear == currentMonth }.associateBy { it.studentId }
+    val totalExpected = activeStudents.sumOf { student ->
+        currentMonthDuesMap[student.id]?.dueAmount ?: student.monthlyFee
+    }
+    val totalOutstanding = (totalExpected - totalCollected).coerceAtLeast(0.0)
 
     var greeting by remember { mutableStateOf(BengaliDateUtils.getGreeting(isBn)) }
     LaunchedEffect(isBn) {
@@ -332,12 +340,12 @@ fun HomeScreen(
                     )
 
                     PinterestQuickAccessCard(
-                        title = Localization.get("action_add_class", isBn),
-                        subtitle = if (isBn) "ব্যাচ ও রুটিন তৈরি" else "Create Session",
+                        title = if (isBn) "ক্লাস / ব্যাচ যোগ" else "Add Class / Batch",
+                        subtitle = if (isBn) "হোম ব্যাচ বা টিউশন" else "Home Batch or Tuition",
                         icon = Icons.Default.Add,
                         cardBgColor = PastelOrangeBg,
                         iconBgColor = PastelOrangeIcon,
-                        onClick = onOpenAddClassDialog,
+                        onClick = { showClassTypeDialog = true },
                         modifier = Modifier.weight(1f),
                         testTag = "quick_add_class"
                     )
@@ -383,54 +391,59 @@ fun HomeScreen(
                     onActionClick = onNavigateToFees
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    StatCard(
-                        title = Localization.get("today_sessions", isBn),
-                        value = if (isBn) BengaliDateUtils.toBengaliDigits(todaySessions.size) else todaySessions.size.toString(),
-                        icon = Icons.Default.Schedule,
-                        iconTint = PastelBlueIcon,
-                        containerColor = PastelBlueBg,
-                        modifier = Modifier.weight(1f),
-                        testTag = "stat_today_sessions"
-                    )
-                    StatCard(
-                        title = Localization.get("active_students", isBn),
-                        value = if (isBn) BengaliDateUtils.toBengaliDigits(activeStudents.size) else activeStudents.size.toString(),
-                        icon = Icons.Default.People,
-                        iconTint = PastelGreenIcon,
-                        containerColor = PastelGreenBg,
-                        modifier = Modifier.weight(1f),
-                        testTag = "stat_active_students"
-                    )
-                }
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val availableWidth = maxWidth
+                    val spacing = if (availableWidth < 340.dp) 8.dp else 12.dp
 
-                Spacer(modifier = Modifier.height(14.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(spacing)
+                        ) {
+                            StatCard(
+                                title = Localization.get("today_sessions", isBn),
+                                value = if (isBn) BengaliDateUtils.toBengaliDigits(todaySessions.size) else todaySessions.size.toString(),
+                                icon = Icons.Default.Schedule,
+                                iconTint = PastelBlueIcon,
+                                containerColor = PastelBlueBg,
+                                modifier = Modifier.weight(1f),
+                                testTag = "stat_today_sessions"
+                            )
+                            StatCard(
+                                title = Localization.get("active_students", isBn),
+                                value = if (isBn) BengaliDateUtils.toBengaliDigits(activeStudents.size) else activeStudents.size.toString(),
+                                icon = Icons.Default.People,
+                                iconTint = PastelGreenIcon,
+                                containerColor = PastelGreenBg,
+                                modifier = Modifier.weight(1f),
+                                testTag = "stat_active_students"
+                            )
+                        }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    StatCard(
-                        title = Localization.get("monthly_collected", isBn),
-                        value = BengaliDateUtils.formatCurrency(totalCollected, isBn),
-                        icon = Icons.Default.Payments,
-                        iconTint = PastelYellowIcon,
-                        containerColor = PastelYellowBg,
-                        modifier = Modifier.weight(1f),
-                        testTag = "stat_collected"
-                    )
-                    StatCard(
-                        title = Localization.get("monthly_dues", isBn),
-                        value = BengaliDateUtils.formatCurrency(totalOutstanding, isBn),
-                        icon = Icons.Default.Payments,
-                        iconTint = if (totalOutstanding > 0) PastelRoseIcon else PastelGreenIcon,
-                        containerColor = if (totalOutstanding > 0) PastelRoseBg else PastelGreenBg,
-                        modifier = Modifier.weight(1f),
-                        testTag = "stat_dues"
-                    )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(spacing)
+                        ) {
+                            StatCard(
+                                title = Localization.get("monthly_collected", isBn),
+                                value = BengaliDateUtils.formatCurrency(totalCollected, isBn),
+                                icon = Icons.Default.Payments,
+                                iconTint = PastelYellowIcon,
+                                containerColor = PastelYellowBg,
+                                modifier = Modifier.weight(1f),
+                                testTag = "stat_collected"
+                            )
+                            StatCard(
+                                title = Localization.get("monthly_dues", isBn),
+                                value = BengaliDateUtils.formatCurrency(totalOutstanding, isBn),
+                                icon = Icons.Default.Payments,
+                                iconTint = if (totalOutstanding > 0) PastelRoseIcon else PastelGreenIcon,
+                                containerColor = if (totalOutstanding > 0) PastelRoseBg else PastelGreenBg,
+                                modifier = Modifier.weight(1f),
+                                testTag = "stat_dues"
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -460,7 +473,7 @@ fun HomeScreen(
                     isBn = isBn,
                     onNavigateToRoutine = onNavigateToRoutine,
                     onTakeAttendance = onNavigateToAttendance,
-                    onAddClass = onOpenAddClassDialog
+                    onAddClass = { showClassTypeDialog = true }
                 )
             }
         }
@@ -528,6 +541,21 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    if (showClassTypeDialog) {
+        SelectClassTypeDialog(
+            isBn = isBn,
+            onDismiss = { showClassTypeDialog = false },
+            onSelectBatch = {
+                showClassTypeDialog = false
+                onOpenAddBatch()
+            },
+            onSelectHomeTuition = {
+                showClassTypeDialog = false
+                onOpenAddHomeTuition()
+            }
+        )
     }
 }
 

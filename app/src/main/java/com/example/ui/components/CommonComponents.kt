@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -130,6 +131,8 @@ fun PinterestQuickAccessCard(
 
 /**
  * Premium StatCard with modern soft pastel background, clean shadow, and crisp numbers.
+ * Features a structured vertical layer hierarchy (Icon -> Value -> Title)
+ * ensuring text is never clipped or cropped on any screen size.
  */
 @Composable
 fun StatCard(
@@ -145,47 +148,78 @@ fun StatCard(
         modifier = modifier.testTag(testTag),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.5.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, BorderSubtle.copy(alpha = 0.5f))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(6.dp))
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val isCompact = maxWidth < 150.dp
+            val horizontalPadding = if (isCompact) 10.dp else 14.dp
+            val verticalPadding = if (isCompact) 10.dp else 13.dp
+            val iconBadgeSize = if (isCompact) 32.dp else 36.dp
+            val iconSize = if (isCompact) 17.dp else 19.dp
+
+            // Flexible dynamic typography scaling based on string length and available space
+            val valueFontSize = when {
+                isCompact && value.length > 8 -> 13.sp
+                value.length > 9 -> 14.sp
+                isCompact || value.length > 7 -> 15.5.sp
+                else -> 17.sp
+            }
+
+            val titleFontSize = if (isCompact || title.length > 14) 11.sp else 12.sp
+            val titleLineHeight = if (isCompact || title.length > 14) 14.sp else 16.sp
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+                horizontalAlignment = Alignment.Start
+            ) {
+                // Layer 1: Compact circular icon badge at top
+                Box(
+                    modifier = Modifier
+                        .size(iconBadgeSize)
+                        .clip(CircleShape)
+                        .background(iconTint.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = iconTint,
+                        modifier = Modifier.size(iconSize)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(if (isCompact) 7.dp else 10.dp))
+
+                // Layer 2: Main Value - bold, clear, dynamically scaled
                 Text(
                     text = value,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = valueFontSize,
+                        fontWeight = FontWeight.Bold
+                    ),
                     color = TextPrimary,
                     maxLines = 1,
+                    softWrap = false,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(iconTint.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = iconTint,
-                    modifier = Modifier.size(22.dp)
+
+                Spacer(modifier = Modifier.height(3.dp))
+
+                // Layer 3: Title / Label - wraps up to 2 lines so never cropped
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = titleFontSize,
+                        lineHeight = titleLineHeight,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    color = TextSecondary,
+                    maxLines = 2,
+                    minLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

@@ -384,137 +384,32 @@ class TuitionViewModel(application: Application) : AndroidViewModel(application)
         return overlaps
     }
 
-    // Backup & Restore helpers (Export to JSON string and Import from JSON string)
+    // Backup & Restore helpers via BackupManager
     suspend fun exportDataJson(): String {
-        val root = JSONObject()
-        val prof = profile.value ?: TeacherProfile()
-        val profObj = JSONObject().apply {
-            put("name", prof.name)
-            put("coachingName", prof.coachingName)
-            put("phone", prof.phone)
-            put("address", prof.address)
-            put("language", prof.language)
-        }
-        root.put("profile", profObj)
+        return com.example.util.BackupManager.generateBackupJson(database)
+    }
 
-        val sArray = JSONArray()
-        allStudents.value.forEach { s ->
-            val o = JSONObject().apply {
-                put("id", s.id)
-                put("name", s.name)
-                put("studentId", s.studentId)
-                put("className", s.className)
-                put("guardianName", s.guardianName)
-                put("guardianPhone", s.guardianPhone)
-                put("subjects", s.subjects)
-                put("monthlyFee", s.monthlyFee)
-                put("tuitionType", s.tuitionType)
-                put("notes", s.notes)
-                put("isArchived", s.isArchived)
-            }
-            sArray.put(o)
-        }
-        root.put("students", sArray)
+    fun validateBackup(jsonString: String): com.example.util.BackupManager.ValidationResult {
+        return com.example.util.BackupManager.validateBackupJson(jsonString, isBengali.value)
+    }
 
-        val bArray = JSONArray()
-        batches.value.forEach { b ->
-            val o = JSONObject().apply {
-                put("id", b.id)
-                put("batchName", b.batchName)
-                put("className", b.className)
-                put("subject", b.subject)
-                put("daysOfWeek", b.daysOfWeek)
-                put("startTime", b.startTime)
-                put("endTime", b.endTime)
-                put("monthlyFee", b.monthlyFee)
-            }
-            bArray.put(o)
+    suspend fun restoreReplaceAll(jsonString: String): Result<Unit> {
+        val result = com.example.util.BackupManager.restoreReplaceAll(database, jsonString)
+        if (result.isSuccess) {
+            userMessage.value = if (isBengali.value) "সফলভাবে ডেটা রিস্টোর সম্পন্ন হয়েছে!" else "Data restored successfully!"
         }
-        root.put("batches", bArray)
+        return result
+    }
 
-        val refArray = JSONArray()
-        batchCrossRefs.value.forEach { r ->
-            val o = JSONObject().apply {
-                put("batchId", r.batchId)
-                put("studentId", r.studentId)
-            }
-            refArray.put(o)
+    suspend fun restoreMerge(jsonString: String): Result<Unit> {
+        val result = com.example.util.BackupManager.restoreMerge(database, jsonString)
+        if (result.isSuccess) {
+            userMessage.value = if (isBengali.value) "সফলভাবে ডেটা মার্জ সম্পন্ন হয়েছে!" else "Data merged successfully!"
         }
-        root.put("batchCrossRefs", refArray)
-
-        val htArray = JSONArray()
-        homeTuitions.value.forEach { ht ->
-            val o = JSONObject().apply {
-                put("id", ht.id)
-                put("studentId", ht.studentId)
-                put("subject", ht.subject)
-                put("address", ht.address)
-                put("guardianPhone", ht.guardianPhone)
-                put("daysOfWeek", ht.daysOfWeek)
-                put("startTime", ht.startTime)
-                put("endTime", ht.endTime)
-                put("monthlyFee", ht.monthlyFee)
-            }
-            htArray.put(o)
-        }
-        root.put("homeTuitions", htArray)
-
-        val payArray = JSONArray()
-        allPayments.value.forEach { p ->
-            val o = JSONObject().apply {
-                put("id", p.id)
-                put("studentId", p.studentId)
-                put("monthYear", p.monthYear)
-                put("amount", p.amount)
-                put("paymentDate", p.paymentDate)
-                put("paymentMethod", p.paymentMethod)
-                put("notes", p.notes)
-            }
-            payArray.put(o)
-        }
-        root.put("payments", payArray)
-
-        val dueArray = JSONArray()
-        allDues.value.forEach { d ->
-            val o = JSONObject().apply {
-                put("id", d.id)
-                put("studentId", d.studentId)
-                put("monthYear", d.monthYear)
-                put("dueAmount", d.dueAmount)
-            }
-            dueArray.put(o)
-        }
-        root.put("dues", dueArray)
-
-        return root.toString(2)
+        return result
     }
 
     suspend fun restoreDataJson(jsonString: String): Boolean {
-        return try {
-            val root = JSONObject(jsonString)
-            if (root.has("students")) {
-                val sArray = root.getJSONArray("students")
-                for (i in 0 until sArray.length()) {
-                    val o = sArray.getJSONObject(i)
-                    val s = Student(
-                        id = o.optLong("id", 0L),
-                        name = o.optString("name", ""),
-                        studentId = o.optString("studentId", ""),
-                        className = o.optString("className", ""),
-                        guardianName = o.optString("guardianName", ""),
-                        guardianPhone = o.optString("guardianPhone", ""),
-                        subjects = o.optString("subjects", ""),
-                        monthlyFee = o.optDouble("monthlyFee", 0.0),
-                        tuitionType = o.optString("tuitionType", "COACHING"),
-                        notes = o.optString("notes", ""),
-                        isArchived = o.optBoolean("isArchived", false)
-                    )
-                    database.studentDao().insertStudent(s)
-                }
-            }
-            true
-        } catch (e: Exception) {
-            false
-        }
+        return restoreReplaceAll(jsonString).isSuccess
     }
 }

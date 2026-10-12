@@ -21,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.HomeWork
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -28,6 +30,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
+import com.example.ui.components.FormModalContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -96,23 +99,46 @@ fun AddEditBatchDialog(
 
     var isNameError by remember { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            ModalHeader(
-                title = if (batchToEdit == null) Localization.get("add_batch", isBn) else Localization.get("batch_name", isBn),
-                onClose = onDismiss
+    FormModalContainer(
+        title = if (batchToEdit == null) Localization.get("add_batch", isBn) else Localization.get("batch_name", isBn),
+        purposeSubtitle = if (isBn) "কোচিং ব্যাচ, ক্লাসের রুটিন ও শিক্ষার্থী নির্বাচন" else "Batch routine, schedule & student enrollment",
+        icon = Icons.Default.School,
+        headerColor = Color(0xFFEA580C),
+        onDismiss = onDismiss,
+        confirmButtonText = Localization.get("save", isBn),
+        dismissButtonText = Localization.get("cancel", isBn),
+        confirmButtonTestTag = "btn_save_batch",
+        dismissButtonTestTag = "btn_cancel_batch",
+        dialogTestTag = "dialog_add_edit_batch",
+        onConfirm = {
+            if (batchName.isBlank()) {
+                isNameError = true
+                return@FormModalContainer
+            }
+            val days = selectedDays.joinToString(",")
+            val feeDouble = feeStr.toDoubleOrNull() ?: 0.0
+            val result = batchToEdit?.copy(
+                batchName = batchName.trim(),
+                className = className.trim(),
+                subject = subject.trim(),
+                daysOfWeek = days,
+                startTime = startTime.trim(),
+                endTime = endTime.trim(),
+                monthlyFee = feeDouble
+            ) ?: CoachingBatch(
+                batchName = batchName.trim(),
+                className = className.trim(),
+                subject = subject.trim(),
+                daysOfWeek = days,
+                startTime = startTime.trim(),
+                endTime = endTime.trim(),
+                monthlyFee = feeDouble
             )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Batch Name
-                OutlinedTextField(
+            onSave(result, selectedStudents.toList())
+        }
+    ) {
+        // Batch Name
+        OutlinedTextField(
                     value = batchName,
                     onValueChange = {
                         batchName = it
@@ -286,60 +312,7 @@ fun AddEditBatchDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (batchName.isBlank()) {
-                        isNameError = true
-                        return@Button
-                    }
-                    val days = selectedDays.joinToString(",")
-                    val feeDouble = feeStr.toDoubleOrNull() ?: 0.0
-                    val result = batchToEdit?.copy(
-                        batchName = batchName.trim(),
-                        className = className.trim(),
-                        subject = subject.trim(),
-                        daysOfWeek = days,
-                        startTime = startTime.trim(),
-                        endTime = endTime.trim(),
-                        monthlyFee = feeDouble
-                    ) ?: CoachingBatch(
-                        batchName = batchName.trim(),
-                        className = className.trim(),
-                        subject = subject.trim(),
-                        daysOfWeek = days,
-                        startTime = startTime.trim(),
-                        endTime = endTime.trim(),
-                        monthlyFee = feeDouble
-                    )
-                    onSave(result, selectedStudents.toList())
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryBlue,
-                    contentColor = androidx.compose.ui.graphics.Color.White
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                modifier = Modifier.testTag("btn_save_batch")
-            ) {
-                Text(
-                    text = Localization.get("save", isBn),
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = Localization.get("cancel", isBn),
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
         }
-    )
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -372,23 +345,45 @@ fun AddEditHomeTuitionDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            ModalHeader(
-                title = if (tuitionToEdit == null) Localization.get("add_home_tuition", isBn) else Localization.get("badge_home", isBn),
-                onClose = onDismiss
+    FormModalContainer(
+        title = if (tuitionToEdit == null) Localization.get("add_home_tuition", isBn) else Localization.get("badge_home", isBn),
+        purposeSubtitle = if (isBn) "বাসায় ব্যক্তিগত ১-অন-১ টিউশনের রুটিন ও মাসিক ফি" else "Private 1-on-1 tuition schedule & monthly fee",
+        icon = Icons.Default.HomeWork,
+        headerColor = Color(0xFF0D9488),
+        onDismiss = onDismiss,
+        confirmButtonText = Localization.get("save", isBn),
+        dismissButtonText = Localization.get("cancel", isBn),
+        confirmButtonTestTag = "btn_save_tuition",
+        dismissButtonTestTag = "btn_cancel_tuition",
+        dialogTestTag = "dialog_add_edit_home_tuition",
+        onConfirm = {
+            if (selectedStudentId == 0L) return@FormModalContainer
+            val days = selectedDays.joinToString(",")
+            val feeDouble = feeStr.toDoubleOrNull() ?: 0.0
+            val result = tuitionToEdit?.copy(
+                studentId = selectedStudentId,
+                subject = subject.trim(),
+                address = address.trim(),
+                guardianPhone = guardianPhone.trim(),
+                daysOfWeek = days,
+                startTime = startTime.trim(),
+                endTime = endTime.trim(),
+                monthlyFee = feeDouble
+            ) ?: com.example.data.model.HomeTuition(
+                studentId = selectedStudentId,
+                subject = subject.trim(),
+                address = address.trim(),
+                guardianPhone = guardianPhone.trim(),
+                daysOfWeek = days,
+                startTime = startTime.trim(),
+                endTime = endTime.trim(),
+                monthlyFee = feeDouble
             )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Select Student
-                Text(
+            onSave(result)
+        }
+    ) {
+        // Select Student
+        Text(
                     text = Localization.get("student_name", isBn) + " *",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -560,57 +555,5 @@ fun AddEditHomeTuitionDialog(
                     colors = modalTextFieldColors(),
                     singleLine = true
                 )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (selectedStudentId == 0L) return@Button
-                    val days = selectedDays.joinToString(",")
-                    val feeDouble = feeStr.toDoubleOrNull() ?: 0.0
-                    val result = tuitionToEdit?.copy(
-                        studentId = selectedStudentId,
-                        subject = subject.trim(),
-                        address = address.trim(),
-                        guardianPhone = guardianPhone.trim(),
-                        daysOfWeek = days,
-                        startTime = startTime.trim(),
-                        endTime = endTime.trim(),
-                        monthlyFee = feeDouble
-                    ) ?: com.example.data.model.HomeTuition(
-                        studentId = selectedStudentId,
-                        subject = subject.trim(),
-                        address = address.trim(),
-                        guardianPhone = guardianPhone.trim(),
-                        daysOfWeek = days,
-                        startTime = startTime.trim(),
-                        endTime = endTime.trim(),
-                        monthlyFee = feeDouble
-                    )
-                    onSave(result)
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = com.example.ui.theme.AccentGreen,
-                    contentColor = androidx.compose.ui.graphics.Color.White
-                ),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                modifier = Modifier.testTag("btn_save_tuition")
-            ) {
-                Text(
-                    text = Localization.get("save", isBn),
-                    color = androidx.compose.ui.graphics.Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = Localization.get("cancel", isBn),
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    )
+    }
 }

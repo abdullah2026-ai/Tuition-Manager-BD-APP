@@ -44,6 +44,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -87,8 +88,19 @@ import com.example.ui.theme.PrimaryBlueLight
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.viewmodel.TuitionViewModel
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Upload
+import com.example.util.BackupManager
+import com.example.util.BengaliDateUtils
 import com.example.util.Localization
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun MoreScreen(
@@ -102,8 +114,82 @@ fun MoreScreen(
 
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
-    var showRestoreDialog by remember { mutableStateOf(false) }
-    var restoreJsonText by remember { mutableStateOf("") }
+    var selectedBackupValidation by remember { mutableStateOf<BackupManager.ValidationResult.Success?>(null) }
+    var showValidationDialog by remember { mutableStateOf(false) }
+    var showReplaceConfirmDialog by remember { mutableStateOf(false) }
+
+    val createDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val json = viewModel.exportDataJson()
+                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(context, Localization.get("export_success", isBn), Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "${Localization.get("export_error", isBn)}: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val openDocumentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val jsonString = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        inputStream.bufferedReader(Charsets.UTF_8).readText()
+                    } ?: ""
+
+                    when (val result = viewModel.validateBackup(jsonString)) {
+                        is BackupManager.ValidationResult.Success -> {
+                            selectedBackupValidation = result
+                            showValidationDialog = true
+                        }
+                        is BackupManager.ValidationResult.Error -> {
+                            Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "${Localization.get("invalid_backup_format", isBn)} (${e.message})", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    fun shareBackupFile() {
+        scope.launch {
+            try {
+                val json = viewModel.exportDataJson()
+                val backupsDir = File(context.cacheDir, "backups")
+                if (!backupsDir.exists()) backupsDir.mkdirs()
+                val timeFormat = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())
+                val file = File(backupsDir, "tuition_manager_backup_$timeFormat.json")
+                file.writeText(json, Charsets.UTF_8)
+
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_SUBJECT, "Tuition Manager BD Backup")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, if (isBn) "ব্যাকআপ ফাইল শেয়ার করুন" else "Share Backup File"))
+            } catch (e: Exception) {
+                Toast.makeText(context, "${Localization.get("export_error", isBn)}: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -293,47 +379,71 @@ fun MoreScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Create Backup Button (High contrast, White on Primary Blue)
-                    Button(
-                        onClick = {
-                            scope.launch {
-                                val json = viewModel.exportDataJson()
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                val clip = ClipData.newPlainText("TuitionManagerBackup", json)
-                                clipboard.setPrimaryClip(clip)
-                                Toast.makeText(
-                                    context,
-                                    if (isBn) "ব্যাকআপ ডেটা ক্লিপবোর্ডে কপি হয়েছে!" else "Backup copied to clipboard!",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryBlue,
-                            contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(Icons.Default.Backup, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = Localization.get("create_backup", isBn),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                        // Save Backup File Button (SAF CreateDocument)
+                        Button(
+                            onClick = {
+                                val timeFormat = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())
+                                createDocumentLauncher.launch("tuition_manager_backup_$timeFormat.json")
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_save_backup_file"),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryBlue,
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = Localization.get("save_backup_file", isBn),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+
+                        // Share Backup File Button (FileProvider + Intent.ACTION_SEND)
+                        OutlinedButton(
+                            onClick = { shareBackupFile() },
+                            modifier = Modifier
+                                .weight(0.9f)
+                                .testTag("btn_share_backup_file"),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, PrimaryBlue),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = PrimaryBlue
+                            )
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, tint = PrimaryBlue, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = Localization.get("share_backup_file", isBn),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryBlue
+                            )
+                        }
                     }
 
-                    // Restore Backup Button (High contrast, White on Accent Green)
+                    // Restore Backup Button (SAF OpenDocument)
                     Button(
-                        onClick = { showRestoreDialog = true },
-                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            openDocumentLauncher.launch(arrayOf("application/json", "text/*", "*/*"))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("btn_restore_backup_file"),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = AccentGreen,
@@ -341,10 +451,10 @@ fun MoreScreen(
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
-                        Icon(Icons.Default.Restore, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = Localization.get("restore_backup", isBn),
+                            text = Localization.get("restore_from_file", isBn),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -696,60 +806,240 @@ fun MoreScreen(
         )
     }
 
-    // Restore Dialog
-    if (showRestoreDialog) {
+    // Pre-Restore Validation & Method Selection Dialog
+    if (showValidationDialog && selectedBackupValidation != null) {
+        val backupData = selectedBackupValidation!!
         AlertDialog(
-            onDismissRequest = { showRestoreDialog = false },
+            onDismissRequest = { showValidationDialog = false },
+            modifier = Modifier.testTag("dialog_backup_validation"),
             title = {
                 ModalHeader(
-                    title = Localization.get("restore_backup", isBn),
-                    onClose = { showRestoreDialog = false }
+                    title = Localization.get("backup_summary", isBn),
+                    onClose = { showValidationDialog = false }
                 )
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = if (isBn) "পূর্বে কপি করা ব্যাকআপ JSON কোড এখানে পেস্ট করুন:" else "Paste your backup JSON text here:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-                    OutlinedTextField(
-                        value = restoreJsonText,
-                        onValueChange = { restoreJsonText = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp),
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Export Date & Version Badge
+                    Surface(
                         shape = RoundedCornerShape(12.dp),
-                        colors = modalTextFieldColors(),
-                        placeholder = { Text("{ \"profile\": ... }") }
-                    )
+                        color = PastelBlueBg,
+                        border = BorderStroke(1.dp, BorderSubtle.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = if (isBn) "তারিখ: ${backupData.exportDateFormatted}" else "Date: ${backupData.exportDateFormatted}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryBlue
+                            )
+                            Text(
+                                text = if (isBn) "ফরম্যাট: v${backupData.version} ${if (backupData.isLegacy) "(পূর্ববর্তী ব্যাকআপ)" else ""}" else "Format: v${backupData.version} ${if (backupData.isLegacy) "(Legacy)" else ""}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+
+                    // Entity Counts Breakdown
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, BorderVerySubtle),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = if (isBn) "ফাইলে পাওয়া রেকর্ডসমূহ:" else "Records Found in File:",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = if (isBn) "• শিক্ষার্থী:" else "• Students:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                Text(text = if (isBn) BengaliDateUtils.toBengaliDigits(backupData.studentCount) else backupData.studentCount.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = if (isBn) "• কোচিং ব্যাচ:" else "• Coaching Batches:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                Text(text = if (isBn) BengaliDateUtils.toBengaliDigits(backupData.batchCount) else backupData.batchCount.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = if (isBn) "• ব্যাচ ভর্তি:" else "• Enrollments:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                Text(text = if (isBn) BengaliDateUtils.toBengaliDigits(backupData.enrollmentCount) else backupData.enrollmentCount.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = if (isBn) "• হোম টিউশন:" else "• Home Tuitions:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                Text(text = if (isBn) BengaliDateUtils.toBengaliDigits(backupData.homeTuitionCount) else backupData.homeTuitionCount.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = if (isBn) "• উপস্থিতি রেকর্ড:" else "• Attendance Records:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                Text(text = if (isBn) BengaliDateUtils.toBengaliDigits(backupData.attendanceCount) else backupData.attendanceCount.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = if (isBn) "• পেমেন্ট রেকর্ড:" else "• Payment Records:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                Text(text = if (isBn) BengaliDateUtils.toBengaliDigits(backupData.paymentCount) else backupData.paymentCount.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(text = if (isBn) "• বকেয়া হিসাব:" else "• Fee Overrides:", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                Text(text = if (isBn) BengaliDateUtils.toBengaliDigits(backupData.dueCount) else backupData.dueCount.toString(), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    // Choice 1: Safe Merge
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = PastelGreenBg.copy(alpha = 0.5f),
+                        border = BorderStroke(1.dp, BorderSubtle.copy(alpha = 0.6f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = Localization.get("merge_data", isBn),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = com.example.ui.theme.PastelGreenText
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = Localization.get("merge_desc", isBn),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        val res = viewModel.restoreMerge(backupData.rawJson)
+                                        if (res.isSuccess) {
+                                            Toast.makeText(context, Localization.get("restore_success", isBn), Toast.LENGTH_LONG).show()
+                                            showValidationDialog = false
+                                            selectedBackupValidation = null
+                                        } else {
+                                            Toast.makeText(context, "ত্রুটি: ${res.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentGreen, contentColor = Color.White),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("btn_confirm_merge")
+                            ) {
+                                Text(
+                                    text = if (isBn) "মার্জ করুন (Merge Data)" else "Merge with Existing Data",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    // Choice 2: Replace All
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = PastelRoseBg.copy(alpha = 0.4f),
+                        border = BorderStroke(1.dp, Color(0xFFFECDD3)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = Localization.get("replace_all_data", isBn),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = com.example.ui.theme.PastelRoseText
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = Localization.get("replace_all_warning", isBn),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = { showReplaceConfirmDialog = true },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48), contentColor = Color.White),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("btn_start_replace_all")
+                            ) {
+                                Text(
+                                    text = if (isBn) "সব প্রতিস্থাপন করুন (Replace All)" else "Replace All Data",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
                 }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showValidationDialog = false }) {
+                    Text(Localization.get("close", isBn), color = TextPrimary, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    // Explicit Confirmation Dialog for Replace All
+    if (showReplaceConfirmDialog && selectedBackupValidation != null) {
+        val backupData = selectedBackupValidation!!
+        AlertDialog(
+            onDismissRequest = { showReplaceConfirmDialog = false },
+            modifier = Modifier.testTag("dialog_replace_all_confirm"),
+            title = {
+                ModalHeader(
+                    title = Localization.get("replace_all_data", isBn),
+                    onClose = { showReplaceConfirmDialog = false }
+                )
+            },
+            text = {
+                Text(
+                    text = Localization.get("replace_all_warning", isBn),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextPrimary
+                )
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        if (restoreJsonText.isNotBlank()) {
-                            scope.launch {
-                                val success = viewModel.restoreDataJson(restoreJsonText)
-                                if (success) {
-                                    Toast.makeText(context, if (isBn) "সফলভাবে রিস্টোর হয়েছে!" else "Restored successfully!", Toast.LENGTH_SHORT).show()
-                                    showRestoreDialog = false
-                                    restoreJsonText = ""
-                                } else {
-                                    Toast.makeText(context, if (isBn) "ভুল ডেটা ফরম্যাট!" else "Invalid format!", Toast.LENGTH_SHORT).show()
-                                }
+                        scope.launch {
+                            val res = viewModel.restoreReplaceAll(backupData.rawJson)
+                            if (res.isSuccess) {
+                                Toast.makeText(context, Localization.get("restore_success", isBn), Toast.LENGTH_LONG).show()
+                                showReplaceConfirmDialog = false
+                                showValidationDialog = false
+                                selectedBackupValidation = null
+                            } else {
+                                Toast.makeText(context, "ত্রুটি: ${res.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
                             }
                         }
                     },
+                    modifier = Modifier.testTag("btn_confirm_replace_all_final"),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue, contentColor = Color.White),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48), contentColor = Color.White)
                 ) {
-                    Text(Localization.get("restore_backup", isBn), color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (isBn) "হ্যাঁ, সম্পূর্ণ প্রতিস্থাপন করুন" else "Yes, Replace All",
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRestoreDialog = false }) {
+                TextButton(onClick = { showReplaceConfirmDialog = false }) {
                     Text(Localization.get("cancel", isBn), color = TextPrimary, fontWeight = FontWeight.Bold)
                 }
             }

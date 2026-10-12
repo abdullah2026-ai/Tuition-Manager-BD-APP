@@ -109,7 +109,38 @@ object Localization {
             "cancel" to "বাতিল",
             "close" to "বন্ধ করুন",
             "search" to "অনুসন্ধান",
-            "empty_list" to "কোন তথ্য পাওয়া যায়নি"
+            "empty_list" to "কোন তথ্য পাওয়া যায়নি",
+
+            // Fee Filter & Summary
+            "filter_all" to "সব",
+            "filter_all_students" to "সব শিক্ষার্থী",
+            "filter_paid" to "পরিশোধিত",
+            "filter_partial" to "আংশিক",
+            "filter_due" to "বকেয়া",
+            "total_expected" to "মোট নির্ধারিত ফি",
+            "total_collected" to "আদায়কৃত ফি",
+            "total_outstanding" to "বকেয়া ফি",
+            "select_month_year" to "মাস ও বছর নির্বাচন",
+            "advance_amount" to "অগ্রিম",
+            "archived_tag" to "আর্কাইভ",
+            "future_month_tag" to "ভবিষ্যৎ মাস",
+            "all_time_payments" to "সকল পেমেন্ট",
+            "month_payments" to "চলতি মাসের পেমেন্ট",
+
+            // Backup & Restore
+            "save_backup_file" to "ফাইলে সেভ করুন",
+            "share_backup_file" to "ফাইল শেয়ার করুন",
+            "restore_from_file" to "ফাইল সিলেক্ট করুন",
+            "backup_summary" to "ব্যাকআপ বিবরণী",
+            "replace_all_data" to "সম্পূর্ণ প্রতিস্থাপন (Replace All)",
+            "replace_all_warning" to "আপনার ডিভাইসের বর্তমান সকল ডেটা মুছে ফেলা হবে এবং ব্যাকআপের ডেটা দিয়ে প্রতিস্থাপন করা হবে। এই কাজটি বাতিল করা যাবে না।",
+            "merge_data" to "মার্জ / একত্রীকরণ (Merge)",
+            "merge_desc" to "বর্তমান ডেটা সুরক্ষিত রেখে ব্যাকআপ থেকে নতুন তথ্য যুক্ত করা হবে। কোনো পূর্ববর্তী রেকর্ড মুছে ফেলা হবে না।",
+            "invalid_backup_format" to "ভুল ব্যাকআপ ফরম্যাট বা ফাইলটি অসম্পূর্ণ!",
+            "unsupported_backup_version" to "এই ব্যাকআপটি অ্যাপের নতুন ভার্সনে তৈরি। অনুগ্রহ করে অ্যাপ আপডেট করুন।",
+            "restore_success" to "সফলভাবে ডেটা রিস্টোর সম্পন্ন হয়েছে!",
+            "export_success" to "ব্যাকআপ ফাইল সফলভাবে সংরক্ষিত হয়েছে!",
+            "export_error" to "ব্যাকআপ ফাইল সংরক্ষণ করা যায়নি।"
         )
 
         val enMap = mapOf(
@@ -211,7 +242,38 @@ object Localization {
             "cancel" to "Cancel",
             "close" to "Close",
             "search" to "Search",
-            "empty_list" to "No records found"
+            "empty_list" to "No records found",
+
+            // Fee Filter & Summary
+            "filter_all" to "All",
+            "filter_all_students" to "All Students",
+            "filter_paid" to "Fully Paid",
+            "filter_partial" to "Partially Paid",
+            "filter_due" to "Due / Unpaid",
+            "total_expected" to "Total Expected Fees",
+            "total_collected" to "Collected Fees",
+            "total_outstanding" to "Outstanding Fees",
+            "select_month_year" to "Select Month & Year",
+            "advance_amount" to "Advance",
+            "archived_tag" to "Archived",
+            "future_month_tag" to "Future Month",
+            "all_time_payments" to "All Payments",
+            "month_payments" to "This Month's Payments",
+
+            // Backup & Restore
+            "save_backup_file" to "Save to Device",
+            "share_backup_file" to "Share File",
+            "restore_from_file" to "Select Backup File",
+            "backup_summary" to "Backup Details",
+            "replace_all_data" to "Replace All Data",
+            "replace_all_warning" to "All existing data on your device will be cleared and replaced with the backup data. This action cannot be undone.",
+            "merge_data" to "Merge with Existing Data",
+            "merge_desc" to "Preserves current data and safely imports new records from backup without deleting existing items.",
+            "invalid_backup_format" to "Invalid backup format or corrupted file!",
+            "unsupported_backup_version" to "This backup was created with a newer app version. Please update the app.",
+            "restore_success" to "Data restored successfully!",
+            "export_success" to "Backup file saved successfully!",
+            "export_error" to "Could not save backup file."
         )
 
         return if (isBengali) bnMap[key] ?: key else enMap[key] ?: bnMap[key] ?: key

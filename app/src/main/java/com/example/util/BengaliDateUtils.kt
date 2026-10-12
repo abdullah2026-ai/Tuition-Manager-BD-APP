@@ -86,15 +86,55 @@ object BengaliDateUtils {
         Calendar.FRIDAY to "FRI"
     )
 
-    private val bengaliMonths = arrayOf(
+    val bengaliMonths = arrayOf(
         "জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন",
         "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"
     )
 
-    private val englishMonths = arrayOf(
+    val englishMonths = arrayOf(
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     )
+
+    fun parseYearMonth(yearMonth: String): Pair<Int, Int> {
+        val parts = yearMonth.split("-")
+        val cal = Calendar.getInstance()
+        val year = parts.getOrNull(0)?.toIntOrNull() ?: cal.get(Calendar.YEAR)
+        val month = parts.getOrNull(1)?.toIntOrNull() ?: (cal.get(Calendar.MONTH) + 1)
+        return Pair(year, month)
+    }
+
+    fun formatYearMonth(year: Int, month: Int): String {
+        return String.format(Locale.US, "%04d-%02d", year, month)
+    }
+
+    fun getMonthName(month1Based: Int, isBengali: Boolean = true): String {
+        val idx = (month1Based - 1).coerceIn(0, 11)
+        return if (isBengali) bengaliMonths[idx] else englishMonths[idx]
+    }
+
+    fun getPreviousMonthYear(yearMonth: String): String {
+        val (year, month) = parseYearMonth(yearMonth)
+        return if (month == 1) {
+            formatYearMonth(year - 1, 12)
+        } else {
+            formatYearMonth(year, month - 1)
+        }
+    }
+
+    fun getNextMonthYear(yearMonth: String): String {
+        val (year, month) = parseYearMonth(yearMonth)
+        return if (month == 12) {
+            formatYearMonth(year + 1, 1)
+        } else {
+            formatYearMonth(year, month + 1)
+        }
+    }
+
+    fun isFutureMonthYear(yearMonth: String): Boolean {
+        val current = getCurrentMonthYear()
+        return yearMonth > current
+    }
 
     fun getTodayDayCode(): String {
         val cal = Calendar.getInstance()
